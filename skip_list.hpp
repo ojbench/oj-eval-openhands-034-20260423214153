@@ -12,10 +12,22 @@ template<typename T>
 class SkipList {
 private:
     struct Node {
-        T value;
+        T* value;  // Use pointer to avoid default constructor
         std::vector<Node*> forward;
+        bool is_head;
         
-        Node(const T& val, int level) : value(val), forward(level + 1, nullptr) {}
+        Node(int level, bool head_node = false) : value(nullptr), forward(level + 1, nullptr), is_head(head_node) {}
+        
+        Node(const T& val, int level) : is_head(false) {
+            value = new T(val);
+            forward.resize(level + 1, nullptr);
+        }
+        
+        ~Node() {
+            if (value != nullptr && !is_head) {
+                delete value;
+            }
+        }
     };
     
     Node* head;
@@ -32,10 +44,15 @@ private:
         return level;
     }
     
+    // Helper function to check equality using only < operator
+    bool equal(const T& a, const T& b) const {
+        return !(a < b) && !(b < a);
+    }
+    
 public:
     SkipList() : max_level(DEFAULT_MAX_LEVEL), current_level(0) {
         srand(time(nullptr));
-        head = new Node(T(), max_level);
+        head = new Node(max_level, true);  // Head node doesn't store a value
     }
     
     ~SkipList() {
@@ -53,7 +70,7 @@ public:
         Node* current = head;
         
         for (int i = current_level; i >= 0; i--) {
-            while (current->forward[i] != nullptr && current->forward[i]->value < item) {
+            while (current->forward[i] != nullptr && *(current->forward[i]->value) < item) {
                 current = current->forward[i];
             }
             update[i] = current;
@@ -61,7 +78,7 @@ public:
         
         current = current->forward[0];
         
-        if (current == nullptr || current->value != item) {
+        if (current == nullptr || !equal(*(current->value), item)) {
             int new_level = random_level();
             
             if (new_level > current_level) {
@@ -84,13 +101,13 @@ public:
         Node* current = head;
         
         for (int i = current_level; i >= 0; i--) {
-            while (current->forward[i] != nullptr && current->forward[i]->value < item) {
+            while (current->forward[i] != nullptr && *(current->forward[i]->value) < item) {
                 current = current->forward[i];
             }
         }
         
         current = current->forward[0];
-        return current != nullptr && current->value == item;
+        return current != nullptr && equal(*(current->value), item);
     }
     
     void deleteItem(const T & item) {
@@ -98,7 +115,7 @@ public:
         Node* current = head;
         
         for (int i = current_level; i >= 0; i--) {
-            while (current->forward[i] != nullptr && current->forward[i]->value < item) {
+            while (current->forward[i] != nullptr && *(current->forward[i]->value) < item) {
                 current = current->forward[i];
             }
             update[i] = current;
@@ -106,7 +123,7 @@ public:
         
         current = current->forward[0];
         
-        if (current != nullptr && current->value == item) {
+        if (current != nullptr && equal(*(current->value), item)) {
             for (int i = 0; i <= current_level; i++) {
                 if (update[i]->forward[i] != current) {
                     break;
